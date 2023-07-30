@@ -99,11 +99,11 @@ const ssl_sources = &.{
 };
 
 const crypto_sources = &.{
-    // "crypto/curve25519/asm/x25519-asm-arm.S",
-    // "crypto/hrss/asm/poly_rq_mul.S",
-    // "crypto/poly1305/poly1305_arm_asm.S",
-    // "third_party/fiat/asm/fiat_curve25519_adx_mul.S",
-    // "third_party/fiat/asm/fiat_curve25519_adx_square.S",
+    "crypto/curve25519/asm/x25519-asm-arm.S",
+    "crypto/hrss/asm/poly_rq_mul.S",
+    "crypto/poly1305/poly1305_arm_asm.S",
+    "third_party/fiat/asm/fiat_curve25519_adx_mul.S",
+    "third_party/fiat/asm/fiat_curve25519_adx_square.S",
 
     "crypto/asn1/a_bitstr.c",
     "crypto/asn1/a_bool.c",
