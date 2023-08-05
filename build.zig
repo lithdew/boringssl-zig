@@ -497,12 +497,12 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
     libfipsmodule.linkLibC();
-    libfipsmodule.addIncludePath(.{ .cwd_relative = "vendor/include" });
+    libfipsmodule.addIncludePath(.{ .path = "vendor/include" });
     inline for (fipsmodule_sources) |path| {
-        libfipsmodule.addCSourceFile(.{ .file = .{ .cwd_relative = "vendor/" ++ path }, .flags = &.{} });
+        libfipsmodule.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{} });
     }
     inline for (generated_fipsmodule_sources) |path| {
-        libfipsmodule.addCSourceFile(.{ .file = .{ .cwd_relative = path }, .flags = &.{} });
+        libfipsmodule.addCSourceFile(.{ .file = .{ .path = path }, .flags = &.{} });
     }
     b.installArtifact(libfipsmodule);
 
@@ -513,13 +513,13 @@ pub fn build(b: *std.Build) void {
     });
     libcrypto.linkLibC();
     libcrypto.linkLibrary(libfipsmodule);
-    libcrypto.addIncludePath(.{ .cwd_relative = "vendor/include" });
+    libcrypto.addIncludePath(.{ .path = "vendor/include" });
 
     inline for (crypto_sources) |path| {
-        libcrypto.addCSourceFile(.{ .file = .{ .cwd_relative = "vendor/" ++ path }, .flags = &.{} });
+        libcrypto.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{} });
     }
     inline for (generated_crypto_sources) |path| {
-        libcrypto.addCSourceFile(.{ .file = .{ .cwd_relative = path }, .flags = &.{} });
+        libcrypto.addCSourceFile(.{ .file = .{ .path = path }, .flags = &.{} });
     }
 
     b.installArtifact(libcrypto);
@@ -532,9 +532,10 @@ pub fn build(b: *std.Build) void {
     libssl.linkLibC();
     libssl.linkLibCpp();
     libssl.linkLibrary(libcrypto);
-    libssl.addIncludePath(.{ .cwd_relative = "vendor/include" });
+    libssl.addIncludePath(.{ .path = "vendor/include" });
+    libssl.installHeadersDirectory("vendor/include", "");
     inline for (ssl_sources) |path| {
-        libssl.addCSourceFile(.{ .file = .{ .cwd_relative = "vendor/" ++ path }, .flags = &.{} });
+        libssl.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{} });
     }
 
     b.installArtifact(libssl);
@@ -547,9 +548,9 @@ pub fn build(b: *std.Build) void {
     libdecrepit.linkLibC();
     libdecrepit.linkLibrary(libcrypto);
     libdecrepit.linkLibrary(libssl);
-    libdecrepit.addIncludePath(.{ .cwd_relative = "vendor/include" });
+    libdecrepit.addIncludePath(.{ .path = "vendor/include" });
     inline for (decrepit_sources) |path| {
-        libdecrepit.addCSourceFile(.{ .file = .{ .cwd_relative = "vendor/" ++ path }, .flags = &.{} });
+        libdecrepit.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{} });
     }
 
     b.installArtifact(libdecrepit);
@@ -562,9 +563,9 @@ pub fn build(b: *std.Build) void {
     libpki.linkLibC();
     libpki.linkLibCpp();
     libpki.linkLibrary(libcrypto);
-    libpki.addIncludePath(.{ .cwd_relative = "vendor/include" });
+    libpki.addIncludePath(.{ .path = "vendor/include" });
     inline for (pki_sources) |path| {
-        libpki.addCSourceFile(.{ .file = .{ .cwd_relative = "vendor/" ++ path }, .flags = &.{"-D_BORINGSSL_LIBPKI_"} });
+        libpki.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{"-D_BORINGSSL_LIBPKI_"} });
     }
 
     b.installArtifact(libpki);
@@ -578,9 +579,9 @@ pub fn build(b: *std.Build) void {
     bssl.linkLibCpp();
     bssl.linkLibrary(libssl);
     bssl.linkLibrary(libcrypto);
-    bssl.addIncludePath(.{ .cwd_relative = "vendor/include" });
+    bssl.addIncludePath(.{ .path = "vendor/include" });
     inline for (bssl_sources) |path| {
-        bssl.addCSourceFile(.{ .file = .{ .cwd_relative = "vendor/" ++ path }, .flags = &.{} });
+        bssl.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{} });
     }
 
     b.installArtifact(bssl);
