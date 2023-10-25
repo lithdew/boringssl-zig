@@ -1,6 +1,7 @@
 const std = @import("std");
 
 const pki_sources = &.{
+    "pki/asn1_util.cc",
     "pki/cert_error_id.cc",
     "pki/cert_error_params.cc",
     "pki/cert_errors.cc",
@@ -10,14 +11,18 @@ const pki_sources = &.{
     "pki/crl.cc",
     "pki/encode_values.cc",
     "pki/extended_key_usage.cc",
-    "pki/fillins/base64.cc",
-    "pki/fillins/ip_address.cc",
+    "pki/fillins/file_util.cc",
+    "pki/fillins/fillins_base64.cc",
+    "pki/fillins/fillins_string_util.cc",
     "pki/fillins/openssl_util.cc",
-    "pki/fillins/string_util.cc",
-    "pki/fillins/utf_string_conversions.cc",
+    "pki/fillins/path_service.cc",
     "pki/general_names.cc",
     "pki/input.cc",
+    "pki/ip_util.cc",
+    "pki/mock_signature_verify_cache.cc",
     "pki/name_constraints.cc",
+    "pki/ocsp.cc",
+    "pki/ocsp_verify_result.cc",
     "pki/parse_certificate.cc",
     "pki/parse_name.cc",
     "pki/parse_values.cc",
@@ -30,9 +35,9 @@ const pki_sources = &.{
     "pki/simple_path_builder_delegate.cc",
     "pki/string_util.cc",
     "pki/tag.cc",
+    "pki/trust_store.cc",
     "pki/trust_store_collection.cc",
     "pki/trust_store_in_memory.cc",
-    "pki/trust_store.cc",
     "pki/verify_certificate_chain.cc",
     "pki/verify_name_match.cc",
     "pki/verify_signed_data.cc",
@@ -104,6 +109,8 @@ const crypto_sources = &.{
     "crypto/poly1305/poly1305_arm_asm.S",
     "third_party/fiat/asm/fiat_curve25519_adx_mul.S",
     "third_party/fiat/asm/fiat_curve25519_adx_square.S",
+    "third_party/fiat/asm/fiat_p256_adx_mul.S",
+    "third_party/fiat/asm/fiat_p256_adx_sqr.S",
 
     "crypto/asn1/a_bitstr.c",
     "crypto/asn1/a_bool.c",
@@ -174,7 +181,6 @@ const crypto_sources = &.{
     "crypto/cpu_aarch64_win.c",
     "crypto/cpu_arm_freebsd.c",
     "crypto/cpu_arm_linux.c",
-    "crypto/cpu_arm.c",
     "crypto/cpu_intel.c",
     "crypto/crypto.c",
     "crypto/curve25519/curve25519.c",
@@ -214,7 +220,7 @@ const crypto_sources = &.{
     "crypto/ex_data.c",
     "crypto/hpke/hpke.c",
     "crypto/hrss/hrss.c",
-    "crypto/kyber/keccak.c",
+    "crypto/keccak/keccak.c",
     "crypto/kyber/kyber.c",
     "crypto/lhash/lhash.c",
     "crypto/mem.c",
@@ -491,15 +497,19 @@ pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
+    const rootpath = boringssl_dep(b).path("");
+
     const libfipsmodule = b.addStaticLibrary(.{
         .name = "fipsmodule",
         .target = target,
         .optimize = optimize,
     });
     libfipsmodule.linkLibC();
-    libfipsmodule.addIncludePath(.{ .path = "vendor/include" });
+    libfipsmodule.addIncludePath(.{ .path = b.pathJoin(&.{ rootpath.getPath(b), "include" }) });
     inline for (fipsmodule_sources) |path| {
-        libfipsmodule.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{} });
+        libfipsmodule.addCSourceFile(.{ .file = .{ .path = b.pathJoin(&.{
+            rootpath.getPath(b), path,
+        }) }, .flags = &.{} });
     }
     inline for (generated_fipsmodule_sources) |path| {
         libfipsmodule.addCSourceFile(.{ .file = .{ .path = path }, .flags = &.{} });
@@ -513,10 +523,16 @@ pub fn build(b: *std.Build) void {
     });
     libcrypto.linkLibC();
     libcrypto.linkLibrary(libfipsmodule);
-    libcrypto.addIncludePath(.{ .path = "vendor/include" });
+    libcrypto.addIncludePath(.{ .path = b.pathJoin(&.{ rootpath.getPath(b), "include" }) });
 
     inline for (crypto_sources) |path| {
-        libcrypto.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{} });
+        libcrypto.addCSourceFile(.{ .file = .{
+            .path = b.pathJoin(
+                &.{
+                    rootpath.getPath(b), path,
+                },
+            ),
+        }, .flags = &.{} });
     }
     inline for (generated_crypto_sources) |path| {
         libcrypto.addCSourceFile(.{ .file = .{ .path = path }, .flags = &.{} });
@@ -532,10 +548,12 @@ pub fn build(b: *std.Build) void {
     libssl.linkLibC();
     libssl.linkLibCpp();
     libssl.linkLibrary(libcrypto);
-    libssl.addIncludePath(.{ .path = "vendor/include" });
-    libssl.installHeadersDirectory("vendor/include", "");
+    libssl.addIncludePath(.{ .path = b.pathJoin(&.{ rootpath.getPath(b), "include" }) });
+    libssl.installHeadersDirectory(b.pathJoin(&.{ rootpath.getPath(b), "include" }), "");
     inline for (ssl_sources) |path| {
-        libssl.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{} });
+        libssl.addCSourceFile(.{ .file = .{ .path = b.pathJoin(&.{
+            rootpath.getPath(b), path,
+        }) }, .flags = &.{} });
     }
 
     b.installArtifact(libssl);
@@ -548,9 +566,11 @@ pub fn build(b: *std.Build) void {
     libdecrepit.linkLibC();
     libdecrepit.linkLibrary(libcrypto);
     libdecrepit.linkLibrary(libssl);
-    libdecrepit.addIncludePath(.{ .path = "vendor/include" });
+    libdecrepit.addIncludePath(.{ .path = b.pathJoin(&.{ rootpath.getPath(b), "include" }) });
     inline for (decrepit_sources) |path| {
-        libdecrepit.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{} });
+        libdecrepit.addCSourceFile(.{ .file = .{ .path = b.pathJoin(&.{
+            rootpath.getPath(b), path,
+        }) }, .flags = &.{} });
     }
 
     b.installArtifact(libdecrepit);
@@ -563,9 +583,11 @@ pub fn build(b: *std.Build) void {
     libpki.linkLibC();
     libpki.linkLibCpp();
     libpki.linkLibrary(libcrypto);
-    libpki.addIncludePath(.{ .path = "vendor/include" });
+    libpki.addIncludePath(.{ .path = b.pathJoin(&.{ rootpath.getPath(b), "include" }) });
     inline for (pki_sources) |path| {
-        libpki.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{"-D_BORINGSSL_LIBPKI_"} });
+        libpki.addCSourceFile(.{ .file = .{ .path = b.pathJoin(&.{
+            rootpath.getPath(b), path,
+        }) }, .flags = &.{"-D_BORINGSSL_LIBPKI_"} });
     }
 
     b.installArtifact(libpki);
@@ -579,9 +601,11 @@ pub fn build(b: *std.Build) void {
     bssl.linkLibCpp();
     bssl.linkLibrary(libssl);
     bssl.linkLibrary(libcrypto);
-    bssl.addIncludePath(.{ .path = "vendor/include" });
+    bssl.addIncludePath(.{ .path = b.pathJoin(&.{ rootpath.getPath(b), "include" }) });
     inline for (bssl_sources) |path| {
-        bssl.addCSourceFile(.{ .file = .{ .path = "vendor/" ++ path }, .flags = &.{} });
+        bssl.addCSourceFile(.{ .file = .{ .path = b.pathJoin(&.{
+            rootpath.getPath(b), path,
+        }) }, .flags = &.{} });
     }
 
     b.installArtifact(bssl);
@@ -596,4 +620,8 @@ pub fn build(b: *std.Build) void {
 
     const test_step = b.step("test", "Run unit tests");
     test_step.dependOn(&run_tests.step);
+}
+
+fn boringssl_dep(b: *std.Build) *std.Build.Dependency {
+    return b.dependency("boringssl", .{});
 }
